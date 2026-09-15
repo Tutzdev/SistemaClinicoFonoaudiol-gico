@@ -1,0 +1,43 @@
+# Local configuration and credentials
+.runtime/
+.env
+.env.*
+!.env.example
+*.log
+*.backup
+
+# Dependencies and build artifacts
+**/node_modules/
+**/dist/
+**/target/
+**/coverage/
+*.class
+*.tsbuildinfo
+.eslintcache
+.npm/
+
+# Test and browser artifacts
+output/
+**/test-results/
+**/playwright-report/
+.playwright-cli/
+
+# Java diagnostics and Maven-generated files
+hs_err_pid*
+replay_pid*
+dependency-reduced-pom.xml
+.flattened-pom.xml
+
+# Editors and IDEs
+.idea/
+.vscode/
+*.iml
+.classpath
+.project
+.settings/
+*.swp
+*~
+
+# Operating system metadata
+.DS_Store
+Thumbs.db

@@ -1,0 +1,16 @@
+{
+  "name": "espaco-sinapse-verification",
+  "private": true,
+  "scripts": {
+    "test:api": "node qa/api-smoke.mjs",
+    "test:e2e": "node qa/smoke.mjs",
+    "test:visual": "node qa/visual.mjs",
+    "dev": "npm --prefix frontend run dev -- --host 127.0.0.1"
+  },
+  "devDependencies": {
+    "@guidepup/guidepup": "^0.31.0",
+    "axe-core": "^4.10.3",
+    "playwright": "^1.55.0",
+    "pngjs": "^7.0.0"
+  }
+}
