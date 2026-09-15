@@ -14,11 +14,11 @@ public record ClinicPrincipal(
 ) implements Serializable {
     public static ClinicPrincipal of(AppUser user) {
         return new ClinicPrincipal(
-            user.id,
-            user.name,
-            user.email,
-            user.role,
-            user.authVersion
+            user.getId(),
+            user.getName(),
+            user.getEmail(),
+            user.getRole(),
+            user.getAuthVersion()
         );
     }
 }

@@ -18,16 +18,17 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+
 import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/users")
 @PreAuthorize("hasRole('ADMIN')")
 public class UserController {
-    private final UserService service;
+    private final UserService userService;
 
-    public UserController(UserService service) {
-        this.service = service;
+    public UserController(UserService userService) {
+        this.userService = userService;
     }
 
     @GetMapping
@@ -36,33 +37,33 @@ public class UserController {
         @RequestParam(defaultValue = "0") int page,
         @RequestParam(defaultValue = "20") int size
     ) {
-        return service.list(search, page, size);
+        return userService.list(search, page, size);
     }
 
     @GetMapping("/{id}")
     UserDto get(@PathVariable UUID id) {
-        return service.get(id);
+        return userService.get(id);
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     UserDto create(@Valid @RequestBody UserInput input) {
-        return service.create(input);
+        return userService.create(input);
     }
 
     @PutMapping("/{id}")
     UserDto update(@PathVariable UUID id, @Valid @RequestBody UserInput input) {
-        return service.update(id, input);
+        return userService.update(id, input);
     }
 
     @PatchMapping("/{id}/active")
-    UserDto active(@PathVariable UUID id, @Valid @RequestBody ActiveInput input) {
-        return service.active(id, input);
+    UserDto changeActiveStatus(@PathVariable UUID id, @Valid @RequestBody ActiveInput input) {
+        return userService.changeActiveStatus(id, input);
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     void delete(@PathVariable UUID id) {
-        service.delete(id);
+        userService.delete(id);
     }
 }

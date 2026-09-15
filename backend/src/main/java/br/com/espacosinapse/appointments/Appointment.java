@@ -6,7 +6,9 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
+
 import java.time.Instant;
+import java.util.Objects;
 import java.util.UUID;
 
 @Entity
@@ -21,30 +23,91 @@ public class Appointment extends BaseEntity {
     }
 
     @Column(nullable = false)
-    public UUID patientId;
+    private UUID patientId;
 
     @Column(nullable = false)
-    public UUID professionalId;
+    private UUID professionalId;
 
     @Column(nullable = false)
-    public UUID serviceId;
+    private UUID serviceId;
 
     @Column(nullable = false)
-    public UUID createdBy;
+    private UUID createdBy;
 
     @Column(name = "starts_at", nullable = false)
-    public Instant start;
+    private Instant start;
 
     @Column(name = "ends_at", nullable = false)
-    public Instant end;
+    private Instant end;
 
-    public int durationMinutes;
+    private int durationMinutes;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
-    public Status status = Status.AGENDADO;
+    private Status status = Status.AGENDADO;
+
+    protected Appointment() {
+    }
+
+    Appointment(
+        UUID patientId,
+        UUID professionalId,
+        UUID serviceId,
+        UUID createdBy,
+        Instant start,
+        int durationMinutes
+    ) {
+        this.patientId = Objects.requireNonNull(patientId);
+        this.professionalId = Objects.requireNonNull(professionalId);
+        this.serviceId = Objects.requireNonNull(serviceId);
+        this.createdBy = Objects.requireNonNull(createdBy);
+        this.durationMinutes = durationMinutes;
+        scheduleAt(start);
+    }
+
+    void reschedule(Instant start) {
+        scheduleAt(start);
+        status = Status.AGENDADO;
+    }
+
+    private void scheduleAt(Instant start) {
+        this.start = Objects.requireNonNull(start);
+        end = start.plusSeconds(durationMinutes * 60L);
+    }
+
+    void changeStatus(Status status) {
+        this.status = Objects.requireNonNull(status);
+    }
 
     public boolean isOpen() {
         return status == Status.AGENDADO || status == Status.CONFIRMADO;
+    }
+
+    public UUID getPatientId() {
+        return patientId;
+    }
+
+    public UUID getProfessionalId() {
+        return professionalId;
+    }
+
+    public UUID getServiceId() {
+        return serviceId;
+    }
+
+    public Instant getStart() {
+        return start;
+    }
+
+    public Instant getEnd() {
+        return end;
+    }
+
+    public int getDurationMinutes() {
+        return durationMinutes;
+    }
+
+    public Status getStatus() {
+        return status;
     }
 }

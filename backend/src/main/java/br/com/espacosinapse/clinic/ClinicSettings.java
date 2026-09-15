@@ -5,26 +5,77 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 
+import java.util.Objects;
+
 @Entity
 @Table(name = "clinic_settings")
 public class ClinicSettings extends BaseEntity {
     @Column(nullable = false, length = 160)
-    public String displayName;
+    private String displayName;
 
     @Column(nullable = false, length = 4000)
-    public String description;
+    private String description;
 
     @Column(nullable = false, length = 32)
-    public String phone;
+    private String phone;
 
     @Column(nullable = false, length = 254)
-    public String email;
+    private String email;
 
     @Column(nullable = false, length = 32)
-    public String whatsapp;
+    private String whatsapp;
 
     @Column(length = 500)
-    public String publicAddress;
+    private String publicAddress;
 
-    public boolean addressConfirmed;
+    private boolean addressConfirmed;
+
+    protected ClinicSettings() {
+    }
+
+    void updatePublicInformation(
+        String displayName,
+        String description,
+        String phone,
+        String email,
+        String whatsapp,
+        String publicAddress,
+        boolean addressConfirmed
+    ) {
+        this.displayName = Objects.requireNonNull(displayName);
+        this.description = Objects.requireNonNull(description);
+        this.phone = Objects.requireNonNull(phone);
+        this.email = Objects.requireNonNull(email);
+        this.whatsapp = Objects.requireNonNull(whatsapp);
+        this.publicAddress = publicAddress;
+        this.addressConfirmed = addressConfirmed;
+    }
+
+    public String getDisplayName() {
+        return displayName;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public String getPhone() {
+        return phone;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public String getWhatsapp() {
+        return whatsapp;
+    }
+
+    public String getPublicAddress() {
+        return publicAddress;
+    }
+
+    public boolean isAddressConfirmed() {
+        return addressConfirmed;
+    }
 }

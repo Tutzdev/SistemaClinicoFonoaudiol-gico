@@ -40,26 +40,26 @@ public class AppointmentService {
         this.availabilityService = availabilityService;
     }
 
-    public AppointmentDto toDto(Appointment appointment) {
-        Patient patient = domainSupport.find(Patient.class, appointment.patientId);
-        Professional professional = domainSupport.find(Professional.class, appointment.professionalId);
-        ClinicService service = domainSupport.find(ClinicService.class, appointment.serviceId);
+    private AppointmentDto toDto(Appointment appointment) {
+        Patient patient = domainSupport.find(Patient.class, appointment.getPatientId());
+        Professional professional = domainSupport.find(Professional.class, appointment.getProfessionalId());
+        ClinicService service = domainSupport.find(ClinicService.class, appointment.getServiceId());
 
         return new AppointmentDto(
-            appointment.id,
-            appointment.patientId,
-            patient.name,
-            appointment.professionalId,
-            professional.name,
-            appointment.serviceId,
-            service.name,
-            DomainSupport.offset(appointment.start),
-            DomainSupport.offset(appointment.end),
-            appointment.durationMinutes,
-            appointment.status,
-            appointment.version,
-            appointment.createdAt,
-            appointment.updatedAt
+            appointment.getId(),
+            appointment.getPatientId(),
+            patient.getName(),
+            appointment.getProfessionalId(),
+            professional.getName(),
+            appointment.getServiceId(),
+            service.getName(),
+            DomainSupport.offset(appointment.getStart()),
+            DomainSupport.offset(appointment.getEnd()),
+            appointment.getDurationMinutes(),
+            appointment.getStatus(),
+            appointment.getVersion(),
+            appointment.getCreatedAt(),
+            appointment.getUpdatedAt()
         );
     }
 
@@ -108,21 +108,20 @@ public class AppointmentService {
     public AppointmentDto create(AppointmentInput input) {
         domainSupport.writeLock();
 
-        Appointment appointment = new Appointment();
-        appointment.patientId = input.patientId();
-        appointment.professionalId = input.professionalId();
-        appointment.serviceId = input.serviceId();
-        appointment.createdBy = DomainSupport.actorId();
-
-        ClinicService service = domainSupport.find(ClinicService.class, appointment.serviceId);
-        appointment.durationMinutes = service.durationMinutes;
-        appointment.start = input.start().toInstant();
-        appointment.end = appointment.start.plusSeconds(appointment.durationMinutes * 60L);
+        ClinicService service = domainSupport.find(ClinicService.class, input.serviceId());
+        Appointment appointment = new Appointment(
+            input.patientId(),
+            input.professionalId(),
+            input.serviceId(),
+            DomainSupport.actorId(),
+            input.start().toInstant(),
+            service.getDurationMinutes()
+        );
 
         validate(appointment, null);
         domainSupport.entityManager.persist(appointment);
         recordHistory(appointment, "CREATED", null, null);
-        domainSupport.audit("CREATED", "APPOINTMENT", appointment.id);
+        domainSupport.audit("CREATED", "APPOINTMENT", appointment.getId());
         domainSupport.entityManager.flush();
 
         return toDto(appointment);
@@ -138,12 +137,10 @@ public class AppointmentService {
             throw ApiException.conflict("Somente consultas agendadas ou confirmadas podem ser reagendadas.");
         }
 
-        Instant previousStart = appointment.start;
-        String previousStatus = appointment.status.name();
+        Instant previousStart = appointment.getStart();
+        String previousStatus = appointment.getStatus().name();
 
-        appointment.start = input.start().toInstant();
-        appointment.end = appointment.start.plusSeconds(appointment.durationMinutes * 60L);
-        appointment.status = Appointment.Status.AGENDADO;
+        appointment.reschedule(input.start().toInstant());
 
         validate(appointment, id);
         recordHistory(appointment, "RESCHEDULED", previousStart, previousStatus);
@@ -154,7 +151,7 @@ public class AppointmentService {
     }
 
     @Transactional
-    public AppointmentDto status(UUID id, StatusInput input) {
+    public AppointmentDto changeStatus(UUID id, StatusInput input) {
         domainSupport.writeLock();
 
         Appointment appointment = domainSupport.find(Appointment.class, id);
@@ -162,22 +159,22 @@ public class AppointmentService {
         if (!appointment.isOpen()) {
             throw ApiException.conflict("O estado desta consulta é final e não pode ser alterado.");
         }
-        if (input.status() == Appointment.Status.AGENDADO || input.status() == appointment.status) {
+        if (input.status() == Appointment.Status.AGENDADO || input.status() == appointment.getStatus()) {
             throw ApiException.conflict("Transição de status inválida.");
         }
 
         boolean finishingAppointment = input.status() == Appointment.Status.CONCLUIDO
             || input.status() == Appointment.Status.NAO_COMPARECEU;
-        if (finishingAppointment && appointment.end.isAfter(Instant.now())) {
+        if (finishingAppointment && appointment.getEnd().isAfter(Instant.now())) {
             throw ApiException.conflict(
                 "Aguarde o horário de término para concluir ou marcar não comparecimento."
             );
         }
 
-        String previousStatus = appointment.status.name();
-        appointment.status = input.status();
+        String previousStatus = appointment.getStatus().name();
+        appointment.changeStatus(input.status());
 
-        recordHistory(appointment, "STATUS_CHANGED", appointment.start, previousStatus);
+        recordHistory(appointment, "STATUS_CHANGED", appointment.getStart(), previousStatus);
         domainSupport.audit("STATUS_CHANGED", "APPOINTMENT", id);
         domainSupport.entityManager.flush();
 
@@ -185,29 +182,33 @@ public class AppointmentService {
     }
 
     private void validate(Appointment appointment, UUID ignoredAppointmentId) {
-        if (!appointment.start.isAfter(Instant.now())) {
+        if (!appointment.getStart().isAfter(Instant.now())) {
             throw ApiException.bad("O agendamento precisa começar no futuro.");
         }
 
-        Patient patient = domainSupport.find(Patient.class, appointment.patientId);
-        if (!patient.active) {
+        Patient patient = domainSupport.find(Patient.class, appointment.getPatientId());
+        if (!patient.isActive()) {
             throw ApiException.conflict("O paciente está inativo.");
         }
 
-        Professional professional = domainSupport.find(Professional.class, appointment.professionalId);
-        if (!professional.active) {
+        Professional professional = domainSupport.find(Professional.class, appointment.getProfessionalId());
+        if (!professional.isActive()) {
             throw ApiException.conflict("O profissional está inativo.");
         }
 
-        ClinicService service = domainSupport.find(ClinicService.class, appointment.serviceId);
-        if (!service.active) {
+        ClinicService service = domainSupport.find(ClinicService.class, appointment.getServiceId());
+        if (!service.isActive()) {
             throw ApiException.conflict("O serviço está inativo.");
         }
-        if (!professional.serviceIds.contains(appointment.serviceId)) {
+        if (!professional.offersService(appointment.getServiceId())) {
             throw ApiException.conflict("O profissional não está vinculado a este serviço.");
         }
 
-        availabilityService.validateSlot(appointment.professionalId, appointment.start, appointment.end);
+        availabilityService.validateSlot(
+            appointment.getProfessionalId(),
+            appointment.getStart(),
+            appointment.getEnd()
+        );
         validateConflicts(appointment, ignoredAppointmentId);
     }
 
@@ -223,10 +224,10 @@ public class AppointmentService {
         var conflictQuery = domainSupport.entityManager
             .createQuery(query, Appointment.class)
             .setParameter("cancelled", Appointment.Status.CANCELADO)
-            .setParameter("professional", appointment.professionalId)
-            .setParameter("patient", appointment.patientId)
-            .setParameter("start", appointment.start)
-            .setParameter("end", appointment.end);
+            .setParameter("professional", appointment.getProfessionalId())
+            .setParameter("patient", appointment.getPatientId())
+            .setParameter("start", appointment.getStart())
+            .setParameter("end", appointment.getEnd());
         if (ignoredAppointmentId != null) {
             conflictQuery.setParameter("ignore", ignoredAppointmentId);
         }
@@ -246,14 +247,15 @@ public class AppointmentService {
         Instant previousStart,
         String previousStatus
     ) {
-        AppointmentHistory history = new AppointmentHistory();
-        history.appointmentId = appointment.id;
-        history.actorId = DomainSupport.actorId();
-        history.action = action;
-        history.previousStart = previousStart;
-        history.newStart = appointment.start;
-        history.previousStatus = previousStatus;
-        history.newStatus = appointment.status.name();
+        AppointmentHistory history = new AppointmentHistory(
+            appointment.getId(),
+            DomainSupport.actorId(),
+            action,
+            previousStart,
+            appointment.getStart(),
+            previousStatus,
+            appointment.getStatus().name()
+        );
         domainSupport.entityManager.persist(history);
     }
 
@@ -269,14 +271,14 @@ public class AppointmentService {
             .getResultList()
             .stream()
             .map(history -> new HistoryDto(
-                history.id,
-                history.action,
-                domainSupport.find(AppUser.class, history.actorId).name,
-                DomainSupport.offset(history.createdAt),
-                DomainSupport.offset(history.previousStart),
-                DomainSupport.offset(history.newStart),
-                history.previousStatus,
-                history.newStatus
+                history.getId(),
+                history.getAction(),
+                domainSupport.find(AppUser.class, history.getActorId()).getName(),
+                DomainSupport.offset(history.getCreatedAt()),
+                DomainSupport.offset(history.getPreviousStart()),
+                DomainSupport.offset(history.getNewStart()),
+                history.getPreviousStatus(),
+                history.getNewStatus()
             ))
             .toList();
     }

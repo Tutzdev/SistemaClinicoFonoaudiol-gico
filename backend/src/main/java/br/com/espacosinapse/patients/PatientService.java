@@ -24,20 +24,20 @@ public class PatientService {
         this.domainSupport = domainSupport;
     }
 
-    public static PatientDto toDto(Patient patient) {
+    private static PatientDto toDto(Patient patient) {
         return new PatientDto(
-            patient.id,
-            patient.name,
-            patient.birthDate,
-            patient.phone,
-            patient.email,
-            patient.guardianName,
-            patient.guardianRelationship,
-            patient.guardianPhone,
-            patient.active,
-            patient.version,
-            patient.createdAt,
-            patient.updatedAt
+            patient.getId(),
+            patient.getName(),
+            patient.getBirthDate(),
+            patient.getPhone(),
+            patient.getEmail(),
+            patient.getGuardianName(),
+            patient.getGuardianRelationship(),
+            patient.getGuardianPhone(),
+            patient.isActive(),
+            patient.getVersion(),
+            patient.getCreatedAt(),
+            patient.getUpdatedAt()
         );
     }
 
@@ -63,11 +63,19 @@ public class PatientService {
     public PatientDto create(PatientInput input) {
         domainSupport.writeLock();
 
-        Patient patient = new Patient();
-        apply(patient, input);
+        PatientDetails details = validateAndNormalize(input);
+        Patient patient = new Patient(
+            details.name(),
+            details.birthDate(),
+            details.phone(),
+            details.email(),
+            details.guardianName(),
+            details.guardianRelationship(),
+            details.guardianPhone()
+        );
 
         domainSupport.entityManager.persist(patient);
-        domainSupport.audit("CREATED", "PATIENT", patient.id);
+        domainSupport.audit("CREATED", "PATIENT", patient.getId());
         domainSupport.entityManager.flush();
 
         return toDto(patient);
@@ -79,7 +87,16 @@ public class PatientService {
 
         Patient patient = domainSupport.find(Patient.class, id);
         domainSupport.version(patient, input.version());
-        apply(patient, input);
+        PatientDetails details = validateAndNormalize(input);
+        patient.updateDetails(
+            details.name(),
+            details.birthDate(),
+            details.phone(),
+            details.email(),
+            details.guardianName(),
+            details.guardianRelationship(),
+            details.guardianPhone()
+        );
 
         domainSupport.audit("UPDATED", "PATIENT", id);
         domainSupport.entityManager.flush();
@@ -87,7 +104,7 @@ public class PatientService {
         return toDto(patient);
     }
 
-    private void apply(Patient patient, PatientInput input) {
+    private PatientDetails validateAndNormalize(PatientInput input) {
         LocalDate today = LocalDate.now(DomainSupport.CLINIC_ZONE);
         if (input.birthDate().isAfter(today)) {
             throw ApiException.bad("A data de nascimento não pode estar no futuro.");
@@ -104,17 +121,19 @@ public class PatientService {
             throw ApiException.bad("Pacientes menores de 18 anos precisam de nome, vínculo e telefone do responsável.");
         }
 
-        patient.name = input.name().strip();
-        patient.birthDate = input.birthDate();
-        patient.phone = input.phone().strip();
-        patient.email = DomainSupport.clean(input.email());
-        patient.guardianName = DomainSupport.clean(input.guardianName());
-        patient.guardianRelationship = DomainSupport.clean(input.guardianRelationship());
-        patient.guardianPhone = DomainSupport.clean(input.guardianPhone());
+        return new PatientDetails(
+            input.name().strip(),
+            input.birthDate(),
+            input.phone().strip(),
+            DomainSupport.clean(input.email()),
+            DomainSupport.clean(input.guardianName()),
+            DomainSupport.clean(input.guardianRelationship()),
+            DomainSupport.clean(input.guardianPhone())
+        );
     }
 
     @Transactional
-    public PatientDto active(UUID id, ActiveInput input) {
+    public PatientDto changeActiveStatus(UUID id, ActiveInput input) {
         domainSupport.writeLock();
 
         Patient patient = domainSupport.find(Patient.class, id);
@@ -123,7 +142,7 @@ public class PatientService {
             domainSupport.requireNoFuture("patientId", id);
         }
 
-        patient.active = input.active();
+        patient.changeActiveStatus(input.active());
         domainSupport.audit(input.active() ? "ACTIVATED" : "INACTIVATED", "PATIENT", id);
         domainSupport.entityManager.flush();
 
@@ -140,5 +159,16 @@ public class PatientService {
         domainSupport.entityManager.remove(patient);
         domainSupport.audit("DELETED", "PATIENT", id);
         domainSupport.entityManager.flush();
+    }
+
+    private record PatientDetails(
+        String name,
+        LocalDate birthDate,
+        String phone,
+        String email,
+        String guardianName,
+        String guardianRelationship,
+        String guardianPhone
+    ) {
     }
 }

@@ -11,8 +11,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Locale;
-
 @Component
 public class BootstrapAdmin implements ApplicationRunner {
     private static final String EMAIL_PATTERN = "[^\\s@]+@[^\\s@]+\\.[^\\s@]+";
@@ -66,13 +64,14 @@ public class BootstrapAdmin implements ApplicationRunner {
             return;
         }
 
-        AppUser user = new AppUser();
-        user.name = name;
-        user.email = email.strip().toLowerCase(Locale.ROOT);
-        user.passwordHash = passwordEncoder.encode(password);
-        user.role = AppUser.Role.ADMIN;
+        AppUser user = new AppUser(
+            name,
+            email,
+            passwordEncoder.encode(password),
+            AppUser.Role.ADMIN
+        );
 
         userRepository.save(user);
-        domainSupport.audit("BOOTSTRAPPED", "USER", user.id);
+        domainSupport.audit("BOOTSTRAPPED", "USER", user.getId());
     }
 }

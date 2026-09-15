@@ -4,8 +4,8 @@ import java.util.List;
 import java.util.UUID;
 
 public class ApiException extends RuntimeException {
-    public final int status;
-    public final List<UUID> conflictingAppointmentIds;
+    private final int status;
+    private final List<UUID> conflictingAppointmentIds;
 
     public ApiException(int status, String message) {
         this(status, message, List.of());
@@ -15,6 +15,14 @@ public class ApiException extends RuntimeException {
         super(message);
         this.status = status;
         this.conflictingAppointmentIds = List.copyOf(ids);
+    }
+
+    public int getStatus() {
+        return status;
+    }
+
+    public List<UUID> getConflictingAppointmentIds() {
+        return conflictingAppointmentIds;
     }
 
     public static ApiException bad(String message) {

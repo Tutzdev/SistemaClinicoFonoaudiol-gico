@@ -5,22 +5,47 @@ import jakarta.persistence.Id;
 import jakarta.persistence.MappedSuperclass;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Version;
+
 import java.time.Instant;
+import java.util.Objects;
 import java.util.UUID;
 
 @MappedSuperclass
 public abstract class BaseEntity {
     @Id
-    public UUID id = UUID.randomUUID();
+    private UUID id = UUID.randomUUID();
 
     @Version
-    public long version;
+    private long version;
 
     @Column(nullable = false, updatable = false)
-    public Instant createdAt = Instant.now();
+    private Instant createdAt = Instant.now();
 
     @Column(nullable = false)
-    public Instant updatedAt = Instant.now();
+    private Instant updatedAt = Instant.now();
+
+    protected BaseEntity() {
+    }
+
+    protected BaseEntity(UUID id) {
+        this.id = Objects.requireNonNull(id);
+    }
+
+    public UUID getId() {
+        return id;
+    }
+
+    public long getVersion() {
+        return version;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
 
     @PreUpdate
     protected void updateTimestamp() {

@@ -23,7 +23,7 @@ public class AvailabilityService {
         this.domainSupport = domainSupport;
     }
 
-    public List<AvailabilityPeriod> periods(UUID professionalId) {
+    private List<AvailabilityPeriod> periods(UUID professionalId) {
         return domainSupport.entityManager
             .createQuery(
                 "select p from AvailabilityPeriod p "
@@ -38,13 +38,17 @@ public class AvailabilityService {
         domainSupport.find(Professional.class, professionalId);
 
         List<PeriodInput> periods = periods(professionalId).stream()
-            .map(period -> new PeriodInput(period.dayOfWeek, period.startTime, period.endTime))
+            .map(period -> new PeriodInput(
+                period.getDayOfWeek(),
+                period.getStartTime(),
+                period.getEndTime()
+            ))
             .toList();
 
         return new AvailabilityInput(periods);
     }
 
-    public static boolean contains(List<PeriodInput> periods, Instant start, Instant end) {
+    private static boolean contains(List<PeriodInput> periods, Instant start, Instant end) {
         var localStart = start.atZone(DomainSupport.CLINIC_ZONE);
         var localEnd = end.atZone(DomainSupport.CLINIC_ZONE);
 
@@ -67,7 +71,11 @@ public class AvailabilityService {
         validatePeriods(sortedPeriods);
 
         var conflicts = domainSupport.openFuture("professionalId", professionalId).stream()
-            .filter(appointment -> !contains(sortedPeriods, appointment.start, appointment.end))
+            .filter(appointment -> !contains(
+                sortedPeriods,
+                appointment.getStart(),
+                appointment.getEnd()
+            ))
             .toList();
         if (!conflicts.isEmpty()) {
             throw DomainSupport.conflicts(
@@ -81,11 +89,12 @@ public class AvailabilityService {
             .setParameter("id", professionalId)
             .executeUpdate();
         for (PeriodInput inputPeriod : sortedPeriods) {
-            AvailabilityPeriod period = new AvailabilityPeriod();
-            period.professionalId = professionalId;
-            period.dayOfWeek = inputPeriod.dayOfWeek();
-            period.startTime = inputPeriod.startTime();
-            period.endTime = inputPeriod.endTime();
+            AvailabilityPeriod period = new AvailabilityPeriod(
+                professionalId,
+                inputPeriod.dayOfWeek(),
+                inputPeriod.startTime(),
+                inputPeriod.endTime()
+            );
             domainSupport.entityManager.persist(period);
         }
 
@@ -135,9 +144,9 @@ public class AvailabilityService {
 
     private static BlockDto toBlockDto(AvailabilityBlock block) {
         return new BlockDto(
-            block.id,
-            DomainSupport.offset(block.start),
-            DomainSupport.offset(block.end)
+            block.getId(),
+            DomainSupport.offset(block.getStart()),
+            DomainSupport.offset(block.getEnd())
         );
     }
 
@@ -153,7 +162,8 @@ public class AvailabilityService {
         }
 
         var conflicts = domainSupport.openFuture("professionalId", professionalId).stream()
-            .filter(appointment -> appointment.start.isBefore(end) && appointment.end.isAfter(start))
+            .filter(appointment -> appointment.getStart().isBefore(end)
+                && appointment.getEnd().isAfter(start))
             .toList();
         if (!conflicts.isEmpty()) {
             throw DomainSupport.conflicts(
@@ -165,10 +175,7 @@ public class AvailabilityService {
             throw ApiException.conflict("Este período já possui um bloqueio.");
         }
 
-        AvailabilityBlock block = new AvailabilityBlock();
-        block.professionalId = professionalId;
-        block.start = start;
-        block.end = end;
+        AvailabilityBlock block = new AvailabilityBlock(professionalId, start, end);
         domainSupport.entityManager.persist(block);
         domainSupport.audit("BLOCK_CREATED", "PROFESSIONAL", professionalId);
         domainSupport.entityManager.flush();
@@ -176,7 +183,7 @@ public class AvailabilityService {
         return toBlockDto(block);
     }
 
-    public boolean hasBlock(UUID professionalId, Instant start, Instant end) {
+    private boolean hasBlock(UUID professionalId, Instant start, Instant end) {
         long count = domainSupport.entityManager
             .createQuery(
                 "select count(b) from AvailabilityBlock b "
@@ -196,7 +203,7 @@ public class AvailabilityService {
         domainSupport.writeLock();
 
         AvailabilityBlock block = domainSupport.find(AvailabilityBlock.class, blockId);
-        if (!block.professionalId.equals(professionalId)) {
+        if (!block.getProfessionalId().equals(professionalId)) {
             throw ApiException.missing();
         }
 

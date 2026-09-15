@@ -4,21 +4,45 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+
 import java.time.LocalTime;
+import java.util.Objects;
 import java.util.UUID;
 
 @Entity
 @Table(name = "availability_periods")
 public class AvailabilityPeriod {
     @Id
-    public UUID id = UUID.randomUUID();
+    private UUID id = UUID.randomUUID();
 
     @Column(nullable = false)
-    public UUID professionalId;
+    private UUID professionalId;
 
-    public int dayOfWeek;
+    private int dayOfWeek;
 
-    public LocalTime startTime;
+    private LocalTime startTime;
 
-    public LocalTime endTime;
+    private LocalTime endTime;
+
+    protected AvailabilityPeriod() {
+    }
+
+    public AvailabilityPeriod(UUID professionalId, int dayOfWeek, LocalTime startTime, LocalTime endTime) {
+        this.professionalId = Objects.requireNonNull(professionalId);
+        this.dayOfWeek = dayOfWeek;
+        this.startTime = Objects.requireNonNull(startTime);
+        this.endTime = Objects.requireNonNull(endTime);
+    }
+
+    public int getDayOfWeek() {
+        return dayOfWeek;
+    }
+
+    public LocalTime getStartTime() {
+        return startTime;
+    }
+
+    public LocalTime getEndTime() {
+        return endTime;
+    }
 }

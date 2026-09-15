@@ -30,14 +30,14 @@ public class ClinicSettingsService {
 
     private SettingsDto toDto(ClinicSettings settings) {
         return new SettingsDto(
-            settings.displayName,
-            settings.description,
-            settings.phone,
-            settings.email,
-            settings.whatsapp,
-            settings.publicAddress,
-            settings.addressConfirmed,
-            settings.version
+            settings.getDisplayName(),
+            settings.getDescription(),
+            settings.getPhone(),
+            settings.getEmail(),
+            settings.getWhatsapp(),
+            settings.getPublicAddress(),
+            settings.isAddressConfirmed(),
+            settings.getVersion()
         );
     }
 
@@ -59,15 +59,17 @@ public class ClinicSettingsService {
             throw ApiException.bad("Preencha o endereço confirmado de atendimento.");
         }
 
-        settings.displayName = input.displayName().strip();
-        settings.description = input.description().strip();
-        settings.phone = input.phone().strip();
-        settings.email = input.email().strip();
-        settings.whatsapp = input.whatsapp().replaceAll("\\D", "");
-        settings.publicAddress = publicAddress;
-        settings.addressConfirmed = input.addressConfirmed();
+        settings.updatePublicInformation(
+            input.displayName().strip(),
+            input.description().strip(),
+            input.phone().strip(),
+            input.email().strip(),
+            input.whatsapp().replaceAll("\\D", ""),
+            publicAddress,
+            input.addressConfirmed()
+        );
 
-        domainSupport.audit("UPDATED", "CLINIC_SETTINGS", settings.id);
+        domainSupport.audit("UPDATED", "CLINIC_SETTINGS", settings.getId());
         domainSupport.entityManager.flush();
 
         return toDto(settings);
@@ -75,16 +77,16 @@ public class ClinicSettingsService {
 
     public PublicClinicDto published() {
         ClinicSettings settings = entity();
-        String publicAddress = settings.addressConfirmed ? settings.publicAddress : null;
+        String publicAddress = settings.isAddressConfirmed() ? settings.getPublicAddress() : null;
 
         return new PublicClinicDto(
-            settings.displayName,
-            settings.description,
-            settings.phone,
-            settings.email,
-            settings.whatsapp,
+            settings.getDisplayName(),
+            settings.getDescription(),
+            settings.getPhone(),
+            settings.getEmail(),
+            settings.getWhatsapp(),
             publicAddress,
-            settings.addressConfirmed,
+            settings.isAddressConfirmed(),
             LEGAL_NAME,
             CNPJ
         );

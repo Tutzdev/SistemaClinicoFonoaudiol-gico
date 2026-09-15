@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -26,10 +27,10 @@ import java.util.UUID;
 @RequestMapping("/api/v1/appointments")
 @PreAuthorize("hasAnyRole('ADMIN','RECEPCAO')")
 public class AppointmentController {
-    private final AppointmentService service;
+    private final AppointmentService appointmentService;
 
-    public AppointmentController(AppointmentService service) {
-        this.service = service;
+    public AppointmentController(AppointmentService appointmentService) {
+        this.appointmentService = appointmentService;
     }
 
     @GetMapping
@@ -42,32 +43,32 @@ public class AppointmentController {
         @RequestParam(defaultValue = "0") int page,
         @RequestParam(defaultValue = "20") int size
     ) {
-        return service.list(from, to, professionalId, patientId, status, page, size);
+        return appointmentService.list(from, to, professionalId, patientId, status, page, size);
     }
 
     @GetMapping("/{id}")
     AppointmentDto get(@PathVariable UUID id) {
-        return service.get(id);
+        return appointmentService.get(id);
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     AppointmentDto create(@Valid @RequestBody AppointmentInput input) {
-        return service.create(input);
+        return appointmentService.create(input);
     }
 
     @PatchMapping("/{id}/reschedule")
     AppointmentDto reschedule(@PathVariable UUID id, @Valid @RequestBody RescheduleInput input) {
-        return service.reschedule(id, input);
+        return appointmentService.reschedule(id, input);
     }
 
     @PatchMapping("/{id}/status")
-    AppointmentDto status(@PathVariable UUID id, @Valid @RequestBody StatusInput input) {
-        return service.status(id, input);
+    AppointmentDto changeStatus(@PathVariable UUID id, @Valid @RequestBody StatusInput input) {
+        return appointmentService.changeStatus(id, input);
     }
 
     @GetMapping("/{id}/history")
     List<HistoryDto> history(@PathVariable UUID id) {
-        return service.history(id);
+        return appointmentService.history(id);
     }
 }

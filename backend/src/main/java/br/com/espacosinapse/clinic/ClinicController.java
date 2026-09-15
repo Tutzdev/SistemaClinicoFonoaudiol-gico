@@ -25,20 +25,20 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/v1")
 public class ClinicController {
-    private final ClinicSettingsService clinic;
-    private final ClinicServiceService services;
-    private final ProfessionalService professionals;
+    private final ClinicSettingsService clinicSettingsService;
+    private final ClinicServiceService clinicService;
+    private final ProfessionalService professionalService;
     private final AuditService auditService;
 
     public ClinicController(
-        ClinicSettingsService clinic,
-        ClinicServiceService services,
-        ProfessionalService professionals,
+        ClinicSettingsService clinicSettingsService,
+        ClinicServiceService clinicService,
+        ProfessionalService professionalService,
         AuditService auditService
     ) {
-        this.clinic = clinic;
-        this.services = services;
-        this.professionals = professionals;
+        this.clinicSettingsService = clinicSettingsService;
+        this.clinicService = clinicService;
+        this.professionalService = professionalService;
         this.auditService = auditService;
     }
 
@@ -50,28 +50,28 @@ public class ClinicController {
     @GetMapping("/clinic-settings")
     @PreAuthorize("hasRole('ADMIN')")
     SettingsDto settings() {
-        return clinic.get();
+        return clinicSettingsService.get();
     }
 
     @PutMapping("/clinic-settings")
     @PreAuthorize("hasRole('ADMIN')")
     SettingsDto update(@Valid @RequestBody SettingsInput input) {
-        return clinic.update(input);
+        return clinicSettingsService.update(input);
     }
 
     @GetMapping("/public/clinic")
     PublicClinicDto publicClinic() {
-        return clinic.published();
+        return clinicSettingsService.published();
     }
 
     @GetMapping("/public/services")
     List<PublicServiceDto> publicServices() {
-        return services.published();
+        return clinicService.published();
     }
 
     @GetMapping("/public/professionals")
     List<PublicProfessionalDto> publicProfessionals() {
-        return professionals.published();
+        return professionalService.published();
     }
 
     @GetMapping("/audit-events")

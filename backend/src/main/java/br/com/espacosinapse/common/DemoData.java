@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.Set;
 import java.util.UUID;
 
 @Component
@@ -35,32 +36,36 @@ public class DemoData implements ApplicationRunner {
             return;
         }
 
-        ClinicService service = new ClinicService();
-        service.id = SERVICE_ID;
-        service.name = "DEMONSTRAÇÃO · Atendimento fictício";
-        service.description = "Dado fictício para testar o painel. Não representa um serviço real da clínica.";
-        service.durationMinutes = 45;
+        ClinicService service = new ClinicService(
+            SERVICE_ID,
+            "DEMONSTRAÇÃO · Atendimento fictício",
+            "Dado fictício para testar o painel. Não representa um serviço real da clínica.",
+            45
+        );
         domainSupport.entityManager.persist(service);
 
-        Professional professional = new Professional();
-        professional.id = PROFESSIONAL_ID;
-        professional.name = "DEMONSTRAÇÃO · Profissional fictício";
-        professional.serviceIds.add(SERVICE_ID);
+        Professional professional = new Professional(
+            PROFESSIONAL_ID,
+            "DEMONSTRAÇÃO · Profissional fictício",
+            Set.of(SERVICE_ID)
+        );
         domainSupport.entityManager.persist(professional);
 
-        Patient patient = new Patient();
-        patient.id = PATIENT_ID;
-        patient.name = "DEMONSTRAÇÃO · Paciente fictício";
-        patient.birthDate = LocalDate.of(1990, 1, 1);
-        patient.phone = "(61) 00000-0000";
+        Patient patient = new Patient(
+            PATIENT_ID,
+            "DEMONSTRAÇÃO · Paciente fictício",
+            LocalDate.of(1990, 1, 1),
+            "(61) 00000-0000"
+        );
         domainSupport.entityManager.persist(patient);
 
         for (int day = 1; day <= 5; day++) {
-            AvailabilityPeriod period = new AvailabilityPeriod();
-            period.professionalId = PROFESSIONAL_ID;
-            period.dayOfWeek = day;
-            period.startTime = LocalTime.of(8, 0);
-            period.endTime = LocalTime.of(18, 0);
+            AvailabilityPeriod period = new AvailabilityPeriod(
+                PROFESSIONAL_ID,
+                day,
+                LocalTime.of(8, 0),
+                LocalTime.of(18, 0)
+            );
             domainSupport.entityManager.persist(period);
         }
     }

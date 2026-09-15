@@ -54,7 +54,7 @@ public class DomainSupport {
         if (expected == null) {
             throw ApiException.bad("Informe a versão do registro para atualizar.");
         }
-        if (entity.version != expected) {
+        if (entity.getVersion() != expected) {
             throw ApiException.conflict(
                 "Este registro foi atualizado por outra pessoa. Recarregue antes de salvar."
             );
@@ -97,11 +97,7 @@ public class DomainSupport {
     }
 
     public void audit(String action, String type, UUID id) {
-        AuditEvent event = new AuditEvent();
-        event.actorId = actorId();
-        event.action = action;
-        event.entityType = type;
-        event.entityId = id;
+        AuditEvent event = new AuditEvent(actorId(), action, type, id);
         entityManager.persist(event);
     }
 
@@ -155,7 +151,7 @@ public class DomainSupport {
 
     public static ApiException conflicts(String message, List<Appointment> conflicts) {
         List<UUID> appointmentIds = conflicts.stream()
-            .map(appointment -> appointment.id)
+            .map(Appointment::getId)
             .toList();
 
         return new ApiException(409, message, appointmentIds);

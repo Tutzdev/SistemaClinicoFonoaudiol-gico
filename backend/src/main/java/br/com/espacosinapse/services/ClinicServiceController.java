@@ -18,16 +18,17 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+
 import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/services")
 @PreAuthorize("hasAnyRole('ADMIN','RECEPCAO')")
 public class ClinicServiceController {
-    private final ClinicServiceService service;
+    private final ClinicServiceService clinicService;
 
-    public ClinicServiceController(ClinicServiceService service) {
-        this.service = service;
+    public ClinicServiceController(ClinicServiceService clinicService) {
+        this.clinicService = clinicService;
     }
 
     @GetMapping
@@ -36,37 +37,37 @@ public class ClinicServiceController {
         @RequestParam(defaultValue = "0") int page,
         @RequestParam(defaultValue = "20") int size
     ) {
-        return service.list(search, page, size);
+        return clinicService.list(search, page, size);
     }
 
     @GetMapping("/{id}")
     ServiceDto get(@PathVariable UUID id) {
-        return service.get(id);
+        return clinicService.get(id);
     }
 
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     @ResponseStatus(HttpStatus.CREATED)
     ServiceDto create(@Valid @RequestBody ServiceInput input) {
-        return service.create(input);
+        return clinicService.create(input);
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     ServiceDto update(@PathVariable UUID id, @Valid @RequestBody ServiceInput input) {
-        return service.update(id, input);
+        return clinicService.update(id, input);
     }
 
     @PatchMapping("/{id}/active")
     @PreAuthorize("hasRole('ADMIN')")
-    ServiceDto active(@PathVariable UUID id, @Valid @RequestBody ActiveInput input) {
-        return service.active(id, input);
+    ServiceDto changeActiveStatus(@PathVariable UUID id, @Valid @RequestBody ActiveInput input) {
+        return clinicService.changeActiveStatus(id, input);
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     void delete(@PathVariable UUID id) {
-        service.delete(id);
+        clinicService.delete(id);
     }
 }

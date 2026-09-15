@@ -25,17 +25,17 @@ public class ClinicServiceService {
         this.domainSupport = domainSupport;
     }
 
-    public static ServiceDto toDto(ClinicService service) {
+    private static ServiceDto toDto(ClinicService service) {
         return new ServiceDto(
-            service.id,
-            service.name,
-            service.description,
-            service.durationMinutes,
-            service.active,
-            service.published,
-            service.version,
-            service.createdAt,
-            service.updatedAt
+            service.getId(),
+            service.getName(),
+            service.getDescription(),
+            service.getDurationMinutes(),
+            service.isActive(),
+            service.isPublished(),
+            service.getVersion(),
+            service.getCreatedAt(),
+            service.getUpdatedAt()
         );
     }
 
@@ -58,11 +58,15 @@ public class ClinicServiceService {
     public ServiceDto create(ServiceInput input) {
         domainSupport.writeLock();
 
-        ClinicService service = new ClinicService();
-        apply(service, input);
+        ClinicService service = new ClinicService(
+            input.name().strip(),
+            DomainSupport.clean(input.description()),
+            input.durationMinutes(),
+            input.published()
+        );
 
         domainSupport.entityManager.persist(service);
-        domainSupport.audit("CREATED", "SERVICE", service.id);
+        domainSupport.audit("CREATED", "SERVICE", service.getId());
         domainSupport.entityManager.flush();
 
         return toDto(service);
@@ -74,7 +78,12 @@ public class ClinicServiceService {
 
         ClinicService service = domainSupport.find(ClinicService.class, id);
         domainSupport.version(service, input.version());
-        apply(service, input);
+        service.updateDetails(
+            input.name().strip(),
+            DomainSupport.clean(input.description()),
+            input.durationMinutes(),
+            input.published()
+        );
 
         domainSupport.audit("UPDATED", "SERVICE", id);
         domainSupport.entityManager.flush();
@@ -82,15 +91,8 @@ public class ClinicServiceService {
         return toDto(service);
     }
 
-    private void apply(ClinicService service, ServiceInput input) {
-        service.name = input.name().strip();
-        service.description = DomainSupport.clean(input.description());
-        service.durationMinutes = input.durationMinutes();
-        service.published = input.published();
-    }
-
     @Transactional
-    public ServiceDto active(UUID id, ActiveInput input) {
+    public ServiceDto changeActiveStatus(UUID id, ActiveInput input) {
         domainSupport.writeLock();
 
         ClinicService service = domainSupport.find(ClinicService.class, id);
@@ -99,7 +101,7 @@ public class ClinicServiceService {
             domainSupport.requireNoFuture("serviceId", id);
         }
 
-        service.active = input.active();
+        service.changeActiveStatus(input.active());
         domainSupport.audit(input.active() ? "ACTIVATED" : "INACTIVATED", "SERVICE", id);
         domainSupport.entityManager.flush();
 
@@ -126,7 +128,11 @@ public class ClinicServiceService {
             ),
             Sort.by("name")
         ).stream()
-            .map(service -> new PublicServiceDto(service.id, service.name, service.description))
+            .map(service -> new PublicServiceDto(
+                service.getId(),
+                service.getName(),
+                service.getDescription()
+            ))
             .toList();
     }
 }

@@ -18,16 +18,17 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+
 import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/patients")
 @PreAuthorize("hasAnyRole('ADMIN','RECEPCAO')")
 public class PatientController {
-    private final PatientService service;
+    private final PatientService patientService;
 
-    public PatientController(PatientService service) {
-        this.service = service;
+    public PatientController(PatientService patientService) {
+        this.patientService = patientService;
     }
 
     @GetMapping
@@ -36,34 +37,34 @@ public class PatientController {
         @RequestParam(defaultValue = "0") int page,
         @RequestParam(defaultValue = "20") int size
     ) {
-        return service.list(search, page, size);
+        return patientService.list(search, page, size);
     }
 
     @GetMapping("/{id}")
     PatientDto get(@PathVariable UUID id) {
-        return service.get(id);
+        return patientService.get(id);
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     PatientDto create(@Valid @RequestBody PatientInput input) {
-        return service.create(input);
+        return patientService.create(input);
     }
 
     @PutMapping("/{id}")
     PatientDto update(@PathVariable UUID id, @Valid @RequestBody PatientInput input) {
-        return service.update(id, input);
+        return patientService.update(id, input);
     }
 
     @PatchMapping("/{id}/active")
-    PatientDto active(@PathVariable UUID id, @Valid @RequestBody ActiveInput input) {
-        return service.active(id, input);
+    PatientDto changeActiveStatus(@PathVariable UUID id, @Valid @RequestBody ActiveInput input) {
+        return patientService.changeActiveStatus(id, input);
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     void delete(@PathVariable UUID id) {
-        service.delete(id);
+        patientService.delete(id);
     }
 }

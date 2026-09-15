@@ -84,20 +84,11 @@ class ClinicIntegrationTest {
         properties.add("spring.datasource.password", postgres::getPassword);
     }
 
-    @Autowired
-    private MockMvc mvc;
-
-    @Autowired
-    private ObjectMapper json;
-
-    @Autowired
-    private JdbcTemplate jdbc;
-
-    @Autowired
-    private AppUserRepository users;
-
-    @Autowired
-    private PasswordEncoder passwords;
+    private final MockMvc mvc;
+    private final ObjectMapper objectMapper;
+    private final JdbcTemplate jdbcTemplate;
+    private final AppUserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
     private Authentication admin;
     private Authentication reception;
@@ -105,34 +96,51 @@ class ClinicIntegrationTest {
     private UUID receptionId;
     private OffsetDateTime slot;
 
+    @Autowired
+    ClinicIntegrationTest(
+        MockMvc mvc,
+        ObjectMapper objectMapper,
+        JdbcTemplate jdbcTemplate,
+        AppUserRepository userRepository,
+        PasswordEncoder passwordEncoder
+    ) {
+        this.mvc = mvc;
+        this.objectMapper = objectMapper;
+        this.jdbcTemplate = jdbcTemplate;
+        this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
+    }
+
     @BeforeEach
     void setup() {
-        jdbc.execute(
+        jdbcTemplate.execute(
             "TRUNCATE appointment_history, audit_events, appointments, availability_blocks, "
                 + "availability_periods, professional_services, patients, professionals, "
                 + "clinic_services, app_users CASCADE"
         );
-        jdbc.update(
+        jdbcTemplate.update(
             "update clinic_settings set public_address=null,address_confirmed=false,version=0 "
                 + "where id='00000000-0000-0000-0000-000000000001'"
         );
 
-        AppUser adminUser = new AppUser();
-        adminUser.name = "Admin de teste";
-        adminUser.email = "admin@test.invalid";
-        adminUser.role = AppUser.Role.ADMIN;
-        adminUser.passwordHash = passwords.encode(PASSWORD);
-        users.saveAndFlush(adminUser);
-        adminId = adminUser.id;
+        AppUser adminUser = new AppUser(
+            "Admin de teste",
+            "admin@test.invalid",
+            passwordEncoder.encode(PASSWORD),
+            AppUser.Role.ADMIN
+        );
+        userRepository.saveAndFlush(adminUser);
+        adminId = adminUser.getId();
         admin = authenticationFor(adminUser);
 
-        AppUser receptionUser = new AppUser();
-        receptionUser.name = "Recepção de teste";
-        receptionUser.email = "recepcao@test.invalid";
-        receptionUser.role = AppUser.Role.RECEPCAO;
-        receptionUser.passwordHash = adminUser.passwordHash;
-        users.saveAndFlush(receptionUser);
-        receptionId = receptionUser.id;
+        AppUser receptionUser = new AppUser(
+            "Recepção de teste",
+            "recepcao@test.invalid",
+            adminUser.getPasswordHash(),
+            AppUser.Role.RECEPCAO
+        );
+        userRepository.saveAndFlush(receptionUser);
+        receptionId = receptionUser.getId();
         reception = authenticationFor(receptionUser);
 
         slot = LocalDate.now(CLINIC_ZONE)
@@ -144,7 +152,7 @@ class ClinicIntegrationTest {
 
     private Authentication authenticationFor(AppUser user) {
         ClinicPrincipal principal = ClinicPrincipal.of(user);
-        var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + user.role));
+        var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole()));
 
         return UsernamePasswordAuthenticationToken.authenticated(principal, null, authorities);
     }
@@ -162,7 +170,7 @@ class ClinicIntegrationTest {
         if (body != null) {
             requestBuilder
                 .contentType("application/json")
-                .content(json.writeValueAsString(body));
+                .content(objectMapper.writeValueAsString(body));
         }
 
         return mvc.perform(requestBuilder);
@@ -175,7 +183,7 @@ class ClinicIntegrationTest {
             .getResponse()
             .getContentAsString();
 
-        return json.readTree(response);
+        return objectMapper.readTree(response);
     }
 
     private UUID patient(String name) throws Exception {
@@ -253,7 +261,7 @@ class ClinicIntegrationTest {
             .andExpect(status().isUnauthorized());
         mvc.perform(post("/api/v1/auth/login")
                 .contentType("application/json")
-                .content(json.writeValueAsString(Map.of(
+                .content(objectMapper.writeValueAsString(Map.of(
                     "email", "admin@test.invalid",
                     "password", PASSWORD
                 ))))
@@ -261,7 +269,7 @@ class ClinicIntegrationTest {
         mvc.perform(post("/api/v1/auth/login")
                 .with(csrf())
                 .contentType("application/json")
-                .content(json.writeValueAsString(Map.of(
+                .content(objectMapper.writeValueAsString(Map.of(
                     "email", "admin@test.invalid",
                     "password", "wrong"
                 ))))
@@ -270,7 +278,7 @@ class ClinicIntegrationTest {
         var loginResult = mvc.perform(post("/api/v1/auth/login")
                 .with(csrf())
                 .contentType("application/json")
-                .content(json.writeValueAsString(Map.of(
+                .content(objectMapper.writeValueAsString(Map.of(
                     "email", "recepcao@test.invalid",
                     "password", PASSWORD
                 ))))
@@ -466,7 +474,7 @@ class ClinicIntegrationTest {
             )).containsExactlyInAnyOrder(201, 409);
         }
 
-        assertThat(jdbc.queryForObject("select count(*) from appointments", Integer.class))
+        assertThat(jdbcTemplate.queryForObject("select count(*) from appointments", Integer.class))
             .isEqualTo(1);
     }
 
@@ -477,7 +485,7 @@ class ClinicIntegrationTest {
         UUID patientId = patient("Restrição PostgreSQL");
         book(patientId, professionalId, serviceId, slot);
 
-        assertThatThrownBy(() -> jdbc.update(
+        assertThatThrownBy(() -> jdbcTemplate.update(
             "insert into appointments("
                 + "id,version,created_at,updated_at,patient_id,professional_id,service_id,"
                 + "created_by,starts_at,ends_at,duration_minutes,status"
@@ -615,7 +623,7 @@ class ClinicIntegrationTest {
         performRequest("GET", "/appointments/" + appointmentId, null, admin)
             .andExpect(jsonPath("$.durationMinutes").value(45));
 
-        jdbc.update(
+        jdbcTemplate.update(
             "update appointments set starts_at=now()-interval '2 hours',"
                 + "ends_at=now()-interval '75 minutes' where id=?",
             UUID.fromString(appointmentId)

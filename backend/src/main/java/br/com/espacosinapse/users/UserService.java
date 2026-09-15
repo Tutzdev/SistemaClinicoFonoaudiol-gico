@@ -31,16 +31,16 @@ public class UserService {
         this.passwordEncoder = passwordEncoder;
     }
 
-    public static UserDto toDto(AppUser user) {
+    private static UserDto toDto(AppUser user) {
         return new UserDto(
-            user.id,
-            user.name,
-            user.email,
-            user.role,
-            user.active,
-            user.version,
-            user.createdAt,
-            user.updatedAt
+            user.getId(),
+            user.getName(),
+            user.getEmail(),
+            user.getRole(),
+            user.isActive(),
+            user.getVersion(),
+            user.getCreatedAt(),
+            user.getUpdatedAt()
         );
     }
 
@@ -73,12 +73,15 @@ public class UserService {
         domainSupport.writeLock();
         validatePassword(input.password());
 
-        AppUser user = new AppUser();
-        apply(user, input);
-        user.passwordHash = passwordEncoder.encode(input.password());
+        AppUser user = new AppUser(
+            input.name().strip(),
+            input.email(),
+            passwordEncoder.encode(input.password()),
+            input.role()
+        );
 
         domainSupport.entityManager.persist(user);
-        domainSupport.audit("CREATED", "USER", user.id);
+        domainSupport.audit("CREATED", "USER", user.getId());
         domainSupport.entityManager.flush();
 
         return toDto(user);
@@ -93,27 +96,18 @@ public class UserService {
         if (input.password() != null) {
             throw ApiException.bad("Use a alteração de senha autenticada para trocar a senha.");
         }
-        if (user.role == AppUser.Role.ADMIN && input.role() != AppUser.Role.ADMIN && user.active) {
+        if (user.getRole() == AppUser.Role.ADMIN
+            && input.role() != AppUser.Role.ADMIN
+            && user.isActive()) {
             requireAnotherActiveAdmin();
         }
 
-        boolean invalidateSessions = !user.email.equalsIgnoreCase(input.email().strip())
-            || user.role != input.role();
-        apply(user, input);
-        if (invalidateSessions) {
-            user.authVersion++;
-        }
+        user.updateProfile(input.name().strip(), input.email(), input.role());
 
         domainSupport.audit("UPDATED", "USER", id);
         domainSupport.entityManager.flush();
 
         return toDto(user);
-    }
-
-    private void apply(AppUser user, UserInput input) {
-        user.name = input.name().strip();
-        user.email = input.email().strip().toLowerCase(Locale.ROOT);
-        user.role = input.role();
     }
 
     private void requireAnotherActiveAdmin() {
@@ -130,18 +124,15 @@ public class UserService {
     }
 
     @Transactional
-    public UserDto active(UUID id, ActiveInput input) {
+    public UserDto changeActiveStatus(UUID id, ActiveInput input) {
         domainSupport.writeLock();
 
         AppUser user = domainSupport.find(AppUser.class, id);
         domainSupport.version(user, input.version());
-        if (!input.active() && user.active && user.role == AppUser.Role.ADMIN) {
+        if (!input.active() && user.isActive() && user.getRole() == AppUser.Role.ADMIN) {
             requireAnotherActiveAdmin();
         }
-        if (user.active != input.active()) {
-            user.active = input.active();
-            user.authVersion++;
-        }
+        user.changeActiveStatus(input.active());
 
         domainSupport.audit(input.active() ? "ACTIVATED" : "INACTIVATED", "USER", id);
         domainSupport.entityManager.flush();
@@ -157,7 +148,7 @@ public class UserService {
         if (id.equals(DomainSupport.actorId())) {
             throw ApiException.conflict("Você não pode excluir seu próprio usuário.");
         }
-        if (user.active && user.role == AppUser.Role.ADMIN) {
+        if (user.isActive() && user.getRole() == AppUser.Role.ADMIN) {
             requireAnotherActiveAdmin();
         }
 

@@ -93,7 +93,9 @@ public class SecurityConfig {
                     if (authentication != null
                         && authentication.getPrincipal() instanceof ClinicPrincipal principal) {
                         var user = userRepository.findById(principal.id()).orElse(null);
-                        if (user == null || !user.active || user.authVersion != principal.authVersion()) {
+                        if (user == null
+                            || !user.isActive()
+                            || user.getAuthVersion() != principal.authVersion()) {
                             SecurityContextHolder.clearContext();
                             var session = request.getSession(false);
                             if (session != null) {
@@ -103,7 +105,7 @@ public class SecurityConfig {
                             var refreshedAuthentication = UsernamePasswordAuthenticationToken.authenticated(
                                 ClinicPrincipal.of(user),
                                 null,
-                                List.of(new SimpleGrantedAuthority("ROLE_" + user.role.name()))
+                                List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()))
                             );
                             SecurityContextHolder.getContext().setAuthentication(refreshedAuthentication);
                         }

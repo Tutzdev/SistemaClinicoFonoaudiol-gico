@@ -23,14 +23,17 @@ public class ApiExceptionHandler {
     @ExceptionHandler(ApiException.class)
     ResponseEntity<ProblemDetail> handle(ApiException exception) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(
-            HttpStatusCode.valueOf(exception.status),
+            HttpStatusCode.valueOf(exception.getStatus()),
             exception.getMessage()
         );
-        if (!exception.conflictingAppointmentIds.isEmpty()) {
-            problem.setProperty("conflictingAppointmentIds", exception.conflictingAppointmentIds);
+        if (!exception.getConflictingAppointmentIds().isEmpty()) {
+            problem.setProperty(
+                "conflictingAppointmentIds",
+                exception.getConflictingAppointmentIds()
+            );
         }
 
-        return ResponseEntity.status(exception.status).body(problem);
+        return ResponseEntity.status(exception.getStatus()).body(problem);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

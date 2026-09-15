@@ -31,21 +31,21 @@ public class ProfessionalService {
         this.domainSupport = domainSupport;
     }
 
-    public static ProfessionalDto toDto(Professional professional) {
+    private static ProfessionalDto toDto(Professional professional) {
         return new ProfessionalDto(
-            professional.id,
-            professional.name,
-            professional.email,
-            professional.phone,
-            professional.registration,
-            professional.region,
-            professional.bio,
-            Set.copyOf(professional.serviceIds),
-            professional.active,
-            professional.published,
-            professional.version,
-            professional.createdAt,
-            professional.updatedAt
+            professional.getId(),
+            professional.getName(),
+            professional.getEmail(),
+            professional.getPhone(),
+            professional.getRegistration(),
+            professional.getRegion(),
+            professional.getBio(),
+            professional.getServiceIds(),
+            professional.isActive(),
+            professional.isPublished(),
+            professional.getVersion(),
+            professional.getCreatedAt(),
+            professional.getUpdatedAt()
         );
     }
 
@@ -68,11 +68,20 @@ public class ProfessionalService {
     public ProfessionalDto create(ProfessionalInput input) {
         domainSupport.writeLock();
 
-        Professional professional = new Professional();
-        apply(professional, input);
+        ProfessionalDetails details = validateAndNormalize(input);
+        Professional professional = new Professional(
+            details.name(),
+            details.email(),
+            details.phone(),
+            details.registration(),
+            details.region(),
+            details.bio(),
+            details.serviceIds(),
+            details.published()
+        );
 
         domainSupport.entityManager.persist(professional);
-        domainSupport.audit("CREATED", "PROFESSIONAL", professional.id);
+        domainSupport.audit("CREATED", "PROFESSIONAL", professional.getId());
         domainSupport.entityManager.flush();
 
         return toDto(professional);
@@ -86,7 +95,7 @@ public class ProfessionalService {
         domainSupport.version(professional, input.version());
 
         var conflicts = domainSupport.openFuture("professionalId", id).stream()
-            .filter(appointment -> !input.serviceIds().contains(appointment.serviceId))
+            .filter(appointment -> !input.serviceIds().contains(appointment.getServiceId()))
             .toList();
         if (!conflicts.isEmpty()) {
             throw DomainSupport.conflicts(
@@ -95,14 +104,24 @@ public class ProfessionalService {
             );
         }
 
-        apply(professional, input);
+        ProfessionalDetails details = validateAndNormalize(input);
+        professional.updateDetails(
+            details.name(),
+            details.email(),
+            details.phone(),
+            details.registration(),
+            details.region(),
+            details.bio(),
+            details.serviceIds(),
+            details.published()
+        );
         domainSupport.audit("UPDATED", "PROFESSIONAL", id);
         domainSupport.entityManager.flush();
 
         return toDto(professional);
     }
 
-    private void apply(Professional professional, ProfessionalInput input) {
+    private ProfessionalDetails validateAndNormalize(ProfessionalInput input) {
         DomainSupport.phone(input.phone(), false);
 
         String registration = DomainSupport.clean(input.registration());
@@ -115,19 +134,20 @@ public class ProfessionalService {
             domainSupport.find(ClinicService.class, serviceId);
         }
 
-        professional.name = input.name().strip();
-        professional.email = DomainSupport.clean(input.email());
-        professional.phone = DomainSupport.clean(input.phone());
-        professional.registration = registration;
-        professional.region = region;
-        professional.bio = DomainSupport.clean(input.bio());
-        professional.published = input.published();
-        professional.serviceIds.clear();
-        professional.serviceIds.addAll(input.serviceIds());
+        return new ProfessionalDetails(
+            input.name().strip(),
+            DomainSupport.clean(input.email()),
+            DomainSupport.clean(input.phone()),
+            registration,
+            region,
+            DomainSupport.clean(input.bio()),
+            input.serviceIds(),
+            input.published()
+        );
     }
 
     @Transactional
-    public ProfessionalDto active(UUID id, ActiveInput input) {
+    public ProfessionalDto changeActiveStatus(UUID id, ActiveInput input) {
         domainSupport.writeLock();
 
         Professional professional = domainSupport.find(Professional.class, id);
@@ -136,7 +156,7 @@ public class ProfessionalService {
             domainSupport.requireNoFuture("professionalId", id);
         }
 
-        professional.active = input.active();
+        professional.changeActiveStatus(input.active());
         domainSupport.audit(input.active() ? "ACTIVATED" : "INACTIVATED", "PROFESSIONAL", id);
         domainSupport.entityManager.flush();
 
@@ -164,12 +184,24 @@ public class ProfessionalService {
             Sort.by("name")
         ).stream()
             .map(professional -> new PublicProfessionalDto(
-                professional.id,
-                professional.name,
-                professional.registration,
-                professional.region,
-                professional.bio
+                professional.getId(),
+                professional.getName(),
+                professional.getRegistration(),
+                professional.getRegion(),
+                professional.getBio()
             ))
             .toList();
+    }
+
+    private record ProfessionalDetails(
+        String name,
+        String email,
+        String phone,
+        String registration,
+        String region,
+        String bio,
+        Set<UUID> serviceIds,
+        boolean published
+    ) {
     }
 }

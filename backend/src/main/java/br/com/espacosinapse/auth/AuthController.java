@@ -3,11 +3,7 @@ package br.com.espacosinapse.auth;
 import br.com.espacosinapse.common.ApiDtos.AuthDto;
 import br.com.espacosinapse.common.ApiDtos.LoginInput;
 import br.com.espacosinapse.common.ApiDtos.PasswordInput;
-import br.com.espacosinapse.common.ApiException;
-import br.com.espacosinapse.common.DomainSupport;
 import br.com.espacosinapse.users.AppUser;
-import br.com.espacosinapse.users.AppUserRepository;
-import br.com.espacosinapse.users.UserService;
 import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -17,12 +13,10 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.security.web.csrf.CsrfTokenRepository;
 import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -31,38 +25,24 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.nio.charset.StandardCharsets;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/auth")
 public class AuthController {
-    private final AppUserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
+    private final AuthService authService;
     private final SecurityContextRepository securityContextRepository;
     private final CsrfTokenRepository csrfTokenRepository;
-    private final LoginThrottle loginThrottle;
-    private final DomainSupport domainSupport;
-    private final String dummyHash;
 
     public AuthController(
-        AppUserRepository userRepository,
-        PasswordEncoder passwordEncoder,
+        AuthService authService,
         SecurityContextRepository securityContextRepository,
-        CsrfTokenRepository csrfTokenRepository,
-        LoginThrottle loginThrottle,
-        DomainSupport domainSupport
+        CsrfTokenRepository csrfTokenRepository
     ) {
-        this.userRepository = userRepository;
-        this.passwordEncoder = passwordEncoder;
+        this.authService = authService;
         this.securityContextRepository = securityContextRepository;
         this.csrfTokenRepository = csrfTokenRepository;
-        this.loginThrottle = loginThrottle;
-        this.domainSupport = domainSupport;
-        this.dummyHash = passwordEncoder.encode(UUID.randomUUID().toString());
     }
 
     @GetMapping("/csrf")
@@ -79,21 +59,7 @@ public class AuthController {
         HttpServletRequest request,
         HttpServletResponse response
     ) {
-        String email = input.email().strip().toLowerCase(Locale.ROOT);
-        loginThrottle.check(request.getRemoteAddr(), email);
-
-        if (input.password().getBytes(StandardCharsets.UTF_8).length > 72) {
-            throw invalidCredentials();
-        }
-
-        AppUser user = userRepository.findByEmailIgnoreCase(email).orElse(null);
-        String passwordHash = user == null ? dummyHash : user.passwordHash;
-        boolean passwordMatches = passwordEncoder.matches(input.password(), passwordHash);
-        if (user == null || !passwordMatches || !user.active) {
-            throw invalidCredentials();
-        }
-
-        loginThrottle.success(email);
+        AppUser user = authService.authenticate(input, request.getRemoteAddr());
         if (request.getSession(false) != null) {
             request.changeSessionId();
         }
@@ -102,7 +68,7 @@ public class AuthController {
         var authentication = UsernamePasswordAuthenticationToken.authenticated(
             principal,
             null,
-            List.of(new SimpleGrantedAuthority("ROLE_" + user.role.name()))
+            List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()))
         );
         var context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(authentication);
@@ -110,11 +76,7 @@ public class AuthController {
         securityContextRepository.saveContext(context, request, response);
         csrfTokenRepository.saveToken(null, request, response);
 
-        return new AuthDto(user.id, user.name, user.email, user.role);
-    }
-
-    private static ApiException invalidCredentials() {
-        return new ApiException(401, "E-mail ou senha inválidos.");
+        return new AuthDto(user.getId(), user.getName(), user.getEmail(), user.getRole());
     }
 
     @GetMapping("/me")
@@ -138,25 +100,14 @@ public class AuthController {
     }
 
     @PutMapping("/password")
-    @Transactional
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    void password(
+    void changePassword(
         @AuthenticationPrincipal ClinicPrincipal principal,
         @Valid @RequestBody PasswordInput input,
         HttpServletRequest request,
         HttpServletResponse response
     ) {
-        domainSupport.writeLock();
-
-        AppUser user = domainSupport.find(AppUser.class, principal.id());
-        if (!passwordEncoder.matches(input.currentPassword(), user.passwordHash)) {
-            throw ApiException.bad("A senha atual está incorreta.");
-        }
-
-        UserService.validatePassword(input.newPassword());
-        user.passwordHash = passwordEncoder.encode(input.newPassword());
-        user.authVersion++;
-        domainSupport.audit("PASSWORD_CHANGED", "USER", user.id);
+        authService.changePassword(principal.id(), input);
 
         // All sessions, including this one, expire. The user signs in with the new password.
         new SecurityContextLogoutHandler().logout(

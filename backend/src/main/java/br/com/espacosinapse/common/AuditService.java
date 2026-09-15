@@ -37,12 +37,12 @@ public class AuditService {
 
     private static AuditDto toDto(AuditEvent event) {
         return new AuditDto(
-            event.id,
-            event.actorId,
-            event.action,
-            event.entityType,
-            event.entityId,
-            event.createdAt
+            event.getId(),
+            event.getActorId(),
+            event.getAction(),
+            event.getEntityType(),
+            event.getEntityId(),
+            event.getCreatedAt()
         );
     }
 }

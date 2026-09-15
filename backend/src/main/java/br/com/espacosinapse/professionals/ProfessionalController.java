@@ -29,12 +29,15 @@ import java.util.UUID;
 @RequestMapping("/api/v1/professionals")
 @PreAuthorize("hasAnyRole('ADMIN','RECEPCAO')")
 public class ProfessionalController {
-    private final ProfessionalService service;
-    private final AvailabilityService availability;
+    private final ProfessionalService professionalService;
+    private final AvailabilityService availabilityService;
 
-    public ProfessionalController(ProfessionalService service, AvailabilityService availability) {
-        this.service = service;
-        this.availability = availability;
+    public ProfessionalController(
+        ProfessionalService professionalService,
+        AvailabilityService availabilityService
+    ) {
+        this.professionalService = professionalService;
+        this.availabilityService = availabilityService;
     }
 
     @GetMapping
@@ -43,67 +46,70 @@ public class ProfessionalController {
         @RequestParam(defaultValue = "0") int page,
         @RequestParam(defaultValue = "20") int size
     ) {
-        return service.list(search, page, size);
+        return professionalService.list(search, page, size);
     }
 
     @GetMapping("/{id}")
     ProfessionalDto get(@PathVariable UUID id) {
-        return service.get(id);
+        return professionalService.get(id);
     }
 
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     @ResponseStatus(HttpStatus.CREATED)
     ProfessionalDto create(@Valid @RequestBody ProfessionalInput input) {
-        return service.create(input);
+        return professionalService.create(input);
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     ProfessionalDto update(@PathVariable UUID id, @Valid @RequestBody ProfessionalInput input) {
-        return service.update(id, input);
+        return professionalService.update(id, input);
     }
 
     @PatchMapping("/{id}/active")
     @PreAuthorize("hasRole('ADMIN')")
-    ProfessionalDto active(@PathVariable UUID id, @Valid @RequestBody ActiveInput input) {
-        return service.active(id, input);
+    ProfessionalDto changeActiveStatus(@PathVariable UUID id, @Valid @RequestBody ActiveInput input) {
+        return professionalService.changeActiveStatus(id, input);
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     void delete(@PathVariable UUID id) {
-        service.delete(id);
+        professionalService.delete(id);
     }
 
     @GetMapping("/{id}/availability")
-    AvailabilityInput availability(@PathVariable UUID id) {
-        return availability.get(id);
+    AvailabilityInput getAvailability(@PathVariable UUID id) {
+        return availabilityService.get(id);
     }
 
     @PutMapping("/{id}/availability")
     @PreAuthorize("hasRole('ADMIN')")
-    AvailabilityInput availability(@PathVariable UUID id, @Valid @RequestBody AvailabilityInput input) {
-        return availability.update(id, input);
+    AvailabilityInput updateAvailability(
+        @PathVariable UUID id,
+        @Valid @RequestBody AvailabilityInput input
+    ) {
+        return availabilityService.update(id, input);
     }
 
     @GetMapping("/{id}/blocks")
     List<BlockDto> blocks(@PathVariable UUID id) {
-        return availability.blocks(id);
+        return availabilityService.blocks(id);
     }
 
     @PostMapping("/{id}/blocks")
     @PreAuthorize("hasRole('ADMIN')")
     @ResponseStatus(HttpStatus.CREATED)
-    BlockDto block(@PathVariable UUID id, @Valid @RequestBody BlockInput input) {
-        return availability.createBlock(id, input);
+    BlockDto createBlock(@PathVariable UUID id, @Valid @RequestBody BlockInput input) {
+        return availabilityService.createBlock(id, input);
     }
 
     @DeleteMapping("/{id}/blocks/{blockId}")
     @PreAuthorize("hasRole('ADMIN')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     void deleteBlock(@PathVariable UUID id, @PathVariable UUID blockId) {
-        availability.deleteBlock(id, blockId);
+        availabilityService.deleteBlock(id, blockId);
     }
 }
